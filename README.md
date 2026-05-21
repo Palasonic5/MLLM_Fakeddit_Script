@@ -1,6 +1,6 @@
-# Fakeddit Zero-Shot Evaluation
+# Fakeddit Evaluation
 
-Zero-shot multimodal fake news detection on the [Fakeddit](https://fakeddit.netlify.app/) dataset using vision-language models.
+Zero-shot and fine-tuned multimodal fake news detection on the [Fakeddit](https://fakeddit.netlify.app/) dataset using vision-language models.
 
 ## Task
 
@@ -16,14 +16,22 @@ Results are compared against ground-truth labels from the `multimodal_only_sampl
 
 ```
 eval/
-├── dataloader.py            # Loads TSV splits, filters to samples with images
-├── prompts.py               # Zero-shot prompt templates + response parser
-├── metrics.py               # Accuracy, F1, precision, recall, confusion matrix
-├── llama_fakeddit_eval.py   # Eval script for Llama 3.2-11B Vision Instruct
-├── run_llama_eval.sbatch    # SLURM job for Llama eval
+├── dataloader.py                      # Loads TSV splits, filters to samples with images
+├── prompts.py                         # Prompt templates + response parser (2-way & 6-way)
+├── metrics.py                         # Accuracy, F1, precision, recall, confusion matrix
+├── llama_fakeddit_eval.py             # Eval script (zero-shot or finetuned)
+├── run_llama_eval.sbatch              # Zero-shot 2-way eval
+├── run_llama_eval_6way.sbatch         # Zero-shot 6-way eval (100 samples)
+├── run_llama_finetuned_eval.sbatch    # Finetuned 2-way eval (100 samples)
+├── run_llama_finetuned_eval_6way.sbatch # Finetuned 6-way eval (100 samples)
 └── outputs/
-    ├── llama_results.csv    # Per-sample predictions
-    └── plots/               # Confusion matrix PNGs
+    ├── llama_results.csv              # Per-sample predictions
+    └── plots/                         # Confusion matrix PNGs
+
+finetune/                              # Training scripts (outside git root)
+├── train_llama.py                     # Last-layer fine-tuning script
+├── run_train_llama.sbatch             # Train on 2-way labels
+└── run_train_llama_6way.sbatch        # Train on 6-way labels
 ```
 
 ---
@@ -82,6 +90,7 @@ cp .env.example .env
 | `NETID` | Your HPC net ID (used in all scratch paths) |
 | `HF_TOKEN` | Hugging Face access token |
 | `SLURM_ACCOUNT` | SLURM billing account |
+| `WANDB_API_KEY` | Weights & Biases API key (for fine-tuning) |
 
 ---
 
@@ -109,6 +118,26 @@ Key arguments in the sbatch (edit as needed):
 ### Quick test (100 samples)
 
 Add `--max_samples 100` to the python command in the sbatch (already set by default).
+
+### Fine-tuned model eval
+
+Point `--model_path` to the fine-tuned checkpoint:
+
+```bash
+source .env
+sbatch --account=${SLURM_ACCOUNT} run_llama_finetuned_eval.sbatch        # 2-way, 100 samples
+sbatch --account=${SLURM_ACCOUNT} run_llama_finetuned_eval_6way.sbatch   # 6-way, 100 samples
+```
+
+---
+
+## Results (Llama 3.2-11B, 100 samples)
+
+| Model | Task | Accuracy | F1 (macro) | F1 (weighted) |
+|---|---|---|---|---|
+| Zero-shot | 2-way | 0.38 | 0.33 | 0.30 |
+| Zero-shot | 6-way | 0.14 | 0.08 | 0.10 |
+| Fine-tuned (last-layer) | 2-way | **0.84** | **0.83** | **0.84** |
 
 ---
 
